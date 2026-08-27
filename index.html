@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Patroli QR Code (Guard Tour System)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .loader {
+            border: 4px solid rgba(51, 65, 85, 0.3);
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
+
+    <!-- Login Screen (Default) -->
+    <div id="login-screen" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-2xl flex items-center justify-center mx-auto text-2xl border border-blue-500/30 shadow-lg">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h1 class="text-xl font-bold text-slate-100">Guard Tour System</h1>
+                <p class="text-xs text-slate-400">Silakan pilih Regu atau Admin untuk masuk ke sistem</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Pilih Akses / Regu</label>
+                    <select id="login-role" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+                        <option value="ReguA">Regu A</option>
+                        <option value="ReguB">Regu B</option>
+                        <option value="ReguC">Regu C</option>
+                        <option value="ReguD">Regu D</option>
+                        <option value="Admin">Admin / Command Center</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">PIN Keamanan</label>
+                    <input type="password" id="login-pin" placeholder="Masukkan PIN (Default: 1234)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition" required>
+                </div>
+
+                <div id="login-error" class="hidden p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                    <span id="error-message"></span>
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 transition text-white py-3 rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <span>Masuk Sistem Patroli</span>
+                </button>
+            </form>
+            
+            <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                <p class="text-[10px] text-slate-400 mb-2"><strong>Akun Demo:</strong></p>
+                <ul class="text-[10px] text-slate-400 space-y-1">
+                    <li>• PIN: <strong>1234</strong> (untuk semua regu)</li>
+                    <li>• Regu: Pilih A, B, C, D, atau Admin</li>
+                </ul>
+            </div>
+
+            <div class="text-center text-[10px] text-slate-500">
+                Sistem Keamanan Terintegrasi Anti-Fake GPS & Real-Time Cloud Sync
+            </div>
+        </div>
+    </div>
+
+    <!-- Pre-Patrol Shift & Personnel Setup Modal -->
+    <div id="pre-patrol-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5 fade-in">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 class="font-bold text-base text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-clipboard-user text-blue-400"></i>
+                    <span>Konfirmasi Shift & Personel Patroli</span>
+                </h3>
+            </div>
+            <p class="text-xs text-slate-400">Wajib memilih shift dan mengisi nama petugas sebelum memulai pemindaian QR checkpoint.</p>
+
+            <form onsubmit="submitPrePatrol(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Pilih Shift Patroli</label>
+                    <select id="pre-shift" onchange="updatePersonnelInputs()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="pagi">Shift Pagi (Wajib 1 Petugas)</option>
+                        <option value="siang">Shift Siang (Wajib 2 Petugas)</option>
+                        <option value="malam">Shift Malam (Wajib 2 Petugas)</option>
+                    </select>
+                </div>
+
+                <div id="personnel-inputs" class="space-y-3">
+                    <!-- Dynamic inputs injected -->
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition text-white py-3 rounded-xl text-sm font-semibold shadow-lg shadow-emerald-600/30">
+                    Mulai Bertugas (Simpan)
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mandatory Scan Photo Capture Modal -->
+    <div id="scan-photo-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 fade-in">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-camera-rotate text-blue-400"></i>
+                    <span id="scan-photo-title">Ambil Foto Bukti Scan Checkpoint</span>
+                </h3>
+            </div>
+            <p class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i> Wajib mengambil foto kondisi pos saat melakukan scan agar data tercatat di Command Center!
+            </p>
+            
+            <div class="relative w-full h-64 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                <video id="scan-camera-stream" autoplay playsinline class="w-full h-full object-cover"></video>
+                <canvas id="scan-snapshot-canvas" class="hidden"></canvas>
+                <div class="absolute bottom-3 left-3 bg-slate-950/80 text-[10px] text-emerald-400 px-3 py-1 rounded-lg border border-emerald-500/30">
+                    <i class="fa-solid fa-circle text-[6px] animate-pulse"></i> Kamera Checkpoint Aktif
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="captureScanPhoto()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-camera"></i>
+                    <span>Ambil Foto & Selesaikan Scan</span>
+                </button>
+                <button onclick="closeScanPhotoModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-3 rounded-xl text-xs font-semibold transition">
+                    Batal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Real Camera Capture Modal (For Incidents) -->
+    <div id="camera-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 fade-in">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-camera text-blue-400"></i>
+                    <span>Kamera Lapangan (Real-Time Capture)</span>
+                </h3>
+                <button onclick="closeCameraModal()" class="text-slate-400 hover:text-white text-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="relative w-full h-72 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                <video id="camera-stream" autoplay playsinline class="w-full h-full object-cover"></video>
+                <canvas id="snapshot-canvas" class="hidden"></canvas>
+                <div class="absolute bottom-3 left-3 bg-slate-950/80 text-[10px] text-emerald-400 px-3 py-1 rounded-lg border border-emerald-500/30">
+                    <i class="fa-solid fa-circle text-[6px] animate-pulse"></i> Live Camera Aktif
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="takeSnapshot()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-camera-retro"></i>
+                    <span>Ambil Foto Sekarang</span>
+                </button>
+                <button onclick="closeCameraModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-3 rounded-xl text-xs font-semibold transition">
+                    Batal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Header -->
+    <header id="main-header" class="hidden bg-slate-900/90 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md px-4 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-md">
+                <i class="fa-solid fa-shield"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-sm text-slate-100 flex items-center space-x-2">
+                    <span>Guard Tour System</span>
+                    <span id="logged-user-label" class="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded-full border border-blue-500/30 font-medium">Regu A</span>
+                </h2>
+                <p class="text-[11px] text-slate-400" id="header-subtitle">Sistem Masuk: Regu A</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <button onclick="triggerSOS()" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 animate-pulse">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span class="hidden sm:inline">PANIC SOS</span>
+            </button>
+            <button onclick="logout()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition border border-slate-700 flex items-center space-x-1.5">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span class="hidden sm:inline">Keluar</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main id="main-container" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
+        <!-- Navigation Tabs -->
+        <div class="flex overflow-x-auto space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 w-fit">
+            <button onclick="switchTab('patrol')" id="tab-patrol" class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 bg-blue-600 text-white shadow-md">
+                <i class="fa-solid fa-qrcode"></i>
+                <span id="tab-label-patrol">Mode Petugas (Scan QR)</span>
+            </button>
+            <button onclick="switchTab('command')" id="tab-command" class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 text-slate-400 hover:text-white hover:bg-slate-800/50">
+                <i class="fa-solid fa-tower-broadcast"></i>
+                <span>Command Center (Live)</span>
+            </button>
+            <button onclick="switchTab('reports')" id="tab-reports" class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 text-slate-400 hover:text-white hover:bg-slate-800/50">
+                <i class="fa-solid fa-file-pdf text-rose-400"></i>
+                <span>Laporan & Ekspor PDF</span>
+            </button>
+            <button onclick="switchTab('qrmanagement')" id="tab-qrmanagement" class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 text-slate-400 hover:text-white hover:bg-slate-800/50 hidden">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>Kelola QR Checkpoint</span>
+            </button>
+            <button onclick="switchTab('info')" id="tab-info" class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 text-slate-400 hover:text-white hover:bg-slate-800/50">
+                <i class="fa-solid fa-book-open"></i>
+                <span>Panduan & Rekomendasi</span>
+            </button>
+        </div>
+
+        <!-- Tab 1: Patrol & Scan QR -->
+        <div id="content-patrol" class="tab-content grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+            <!-- Left Panel: QR Scanner Simulation -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+                    <div class="absolute top-4 left-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-3 py-1 rounded-full flex items-center space-x-1.5">
+                        <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                        <span>Anti-Fake GPS Terverifikasi (Aman)</span>
+                    </div>
+
+                    <div class="w-48 h-48 bg-slate-950 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center p-4 my-6 shadow-inner relative group">
+                        <i class="fa-solid fa-qrcode text-6xl text-blue-500 mb-2"></i>
+                        <span class="text-xs text-slate-400 font-mono">Arahkan Kamera ke QR Code Pos</span>
+                        <div class="absolute inset-0 bg-blue-600/10 opacity-0 group-hover:opacity-100 transition rounded-2xl flex items-center justify-center">
+                            <span class="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow">Kamera Aktif</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full flex items-center justify-between bg-slate-950 border border-slate-800 p-4 rounded-2xl mb-4">
+                        <div class="text-left">
+                            <span class="text-xs text-slate-400 block">Progres Patroli Hari Ini</span>
+                            <span id="progress-text" class="text-lg font-bold text-slate-100">0 / 6 Checkpoint</span>
+                        </div>
+                        <button onclick="openPrePatrolModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition border border-slate-700">
+                            <i class="fa-solid fa-user-pen mr-1"></i> Ubah Shift/Petugas
+                        </button>
+                    </div>
+
+                    <p class="text-xs text-slate-300 mb-3 font-medium self-start">Pilih Checkpoint di bawah untuk mensimulasikan hasil <em>Scan</em> QR Code di lapangan (Wajib Ambil Foto):</p>
+                    
+                    <!-- Checkpoint Quick Buttons -->
+                    <div id="checkpoint-buttons-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
+                        <!-- Dynamic buttons injected -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Report Incident & Camera Capture -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                    <h3 class="font-bold text-base text-slate-100 flex items-center space-x-2">
+                        <i class="fa-solid fa-camera text-blue-400"></i>
+                        <span>Laporan Insiden & Kamera Lapangan</span>
+                    </h3>
+                    <p class="text-xs text-slate-400">Ambil foto langsung dari kamera perangkat dengan cap otomatis (Nama Petugas, Tanggal & Jam, GPS).</p>
+
+                    <form onsubmit="submitIncident(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Jenis Temuan / Insiden</label>
+                            <select id="incident-type" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                                <option value="Fasilitas Rusak">Fasilitas / Pintu Rusak</option>
+                                <option value="Kebocoran Pipa">Kebocoran Air / Pipa</option>
+                                <option value="Padam Listrik">Gangguan Kelistrikan</option>
+                                <option value="Mencurigakan">Orang / Aktivitas Mencurigakan</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Keterangan Detail</label>
+                            <textarea id="incident-desc" rows="2" placeholder="Tuliskan detail kejadian..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500" required></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Ambil Foto Bukti (Kamera Langsung)</label>
+                            <button type="button" onclick="openCameraModal()" class="w-full border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-950 rounded-xl p-3.5 flex flex-col items-center justify-center cursor-pointer transition">
+                                <i class="fa-solid fa-camera-rotate text-blue-400 text-lg mb-1"></i>
+                                <span id="photo-label" class="text-xs text-slate-300 font-medium">Buka Kamera Perangkat</span>
+                            </button>
+                        </div>
+
+                        <div id="photo-preview-container" class="hidden p-2 bg-slate-950 border border-emerald-500/30 rounded-xl text-center space-y-2">
+                            <span class="text-[10px] text-emerald-400 font-bold block"><i class="fa-solid fa-circle-check"></i> Foto Real Berhasil Diambil & Diberi Watermark</span>
+                            <img id="preview-img-result" class="w-full h-32 object-cover rounded-lg border border-slate-800">
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 transition text-white py-2.5 rounded-xl text-xs font-semibold shadow-md">
+                            Kirim Laporan Insiden
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Command Center (Live) -->
+        <div id="content-command" class="tab-content hidden grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+            <div class="lg:col-span-3 flex flex-col gap-6">
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md">
+                        <div class="text-xs text-slate-400">Total Checkpoint</div>
+                        <div class="text-2xl font-bold text-slate-100 mt-1" id="stat-total-pos">6 Pos</div>
+                        <div class="text-[10px] text-emerald-400 mt-1"><i class="fa-solid fa-check"></i> 100% Aktif</div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md">
+                        <div class="text-xs text-slate-400">Total Scan Hari Ini</div>
+                        <div class="text-2xl font-bold text-blue-400 mt-1" id="stat-scans">0 Kali</div>
+                        <div class="text-[10px] text-blue-400 mt-1"><i class="fa-solid fa-sync"></i> Real-time Sync</div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md">
+                        <div class="text-xs text-slate-400">Insiden Dilaporkan</div>
+                        <div class="text-2xl font-bold text-amber-400 mt-1" id="stat-incidents">0 Kasus</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Dalam Penanganan</div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md">
+                        <div class="text-xs text-slate-400">Status Sistem GPS</div>
+                        <div class="text-2xl font-bold text-emerald-400 mt-1">Aman</div>
+                        <div class="text-[10px] text-emerald-400 mt-1"><i class="fa-solid fa-shield-halved"></i> Anti-Fake Aktif</div>
+                    </div>
+                </div>
+
+                <!-- Live Log Table -->
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+                    <h3 class="font-bold text-base text-slate-100 mb-3 flex items-center justify-between">
+                        <span>Aktivitas Scan & Laporan Live</span>
+                        <span class="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20"><i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Live Connected</span>
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-slate-950 uppercase text-[10px] text-slate-400 border-b border-slate-800">
+                                <tr>
+                                    <th class="px-4 py-3">Waktu</th>
+                                    <th class="px-4 py-3">Regu & Personel</th>
+                                    <th class="px-4 py-3">Aktivitas / Lokasi</th>
+                                    <th class="px-4 py-3">Status GPS & Foto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="command-log-body" class="divide-y divide-slate-800/50">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Emergency SOS Log -->
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+                    <h3 class="font-bold text-base text-slate-100 mb-3 flex items-center space-x-2">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+                        <span>Riwayat SOS / Panic Button</span>
+                    </h3>
+                    <div id="sos-log-container" class="space-y-3">
+                        <!-- Dynamic SOS logs -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Reports & PDF Export -->
+        <div id="content-reports" class="tab-content hidden grid-cols-1 gap-6 fade-in">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-xl space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-100 flex items-center space-x-2">
+                            <i class="fa-solid fa-file-lines text-rose-400"></i>
+                            <span>Pusat Laporan & Ekspor Dokumen Patroli</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Filter laporan berdasarkan rentang tanggal dan cetak dokumen dalam format PDF atau CSV.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="exportToPDF()" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-rose-600/30 flex items-center space-x-2">
+                            <i class="fa-solid fa-file-pdf"></i>
+                            <span>Cetak / Ekspor PDF</span>
+                        </button>
+                        <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center space-x-2">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Ekspor Excel (CSV)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Dari Tanggal</label>
+                        <input type="date" id="filter-start-date" onchange="filterReportLogs()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Sampai Tanggal</label>
+                        <input type="date" id="filter-end-date" onchange="filterReportLogs()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="resetDateFilter()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-xl text-xs font-semibold transition border border-slate-700">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Reset Filter Tanggal
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Table Preview -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900 uppercase text-[10px] text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="px-4 py-3">Tanggal & Waktu</th>
+                                <th class="px-4 py-3">Regu & Personel</th>
+                                <th class="px-4 py-3">Aktivitas / Lokasi</th>
+                                <th class="px-4 py-3">Status / Foto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body" class="divide-y divide-slate-800/50">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: QR Code Management (Admin Only) -->
+        <div id="content-qrmanagement" class="tab-content hidden grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+            <div class="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                <h3 class="font-bold text-base text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-plus text-blue-400"></i>
+                    <span>Tambah Checkpoint QR Baru</span>
+                </h3>
+                <p class="text-xs text-slate-400">Buat pos atau titik scan baru yang wajib didatangi regu patroli.</p>
+                
+                <form onsubmit="addNewCheckpoint(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Nama Pos / Checkpoint</label>
+                        <input type="text" id="new-pos-name" placeholder="Contoh: POS 7 - Rooftop Tower B" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Keterangan Lokasi / Area</label>
+                        <input type="text" id="new-pos-loc" placeholder="Contoh: Lantai 10 - Sisi Utara" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 transition text-white py-2.5 rounded-xl text-sm font-semibold shadow-md">
+                        Simpan & Generate QR Pos
+                    </button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col">
+                <h3 class="font-bold text-base text-slate-100 mb-3 flex items-center justify-between">
+                    <span>Daftar Checkpoint QR Aktif</span>
+                    <span class="text-xs bg-slate-800 px-2.5 py-0.5 rounded-full text-slate-300" id="qr-list-count">6 Pos</span>
+                </h3>
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-950 uppercase text-[10px] text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="px-4 py-3">Nama Pos</th>
+                                <th class="px-4 py-3">Detail Lokasi</th>
+                                <th class="px-4 py-3">ID QR Code</th>
+                                <th class="px-4 py-3 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qr-table-body" class="divide-y divide-slate-800/50">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Panduan & Rekomendasi -->
+        <div id="content-info" class="tab-content hidden grid-cols-1 gap-6 fade-in">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-xl space-y-6">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center space-x-2">
+                        <i class="fa-solid fa-book-open text-blue-400"></i>
+                        <span>Panduan Lengkap Sistem Patroli QR Code (Guard Tour System Digital)</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Solusi modern menggantikan buku laporan konvensional atau mesin patroli fisik tradisional.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 space-y-3">
+                        <div class="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                        <h3 class="font-bold text-sm text-slate-100">Fitur Utama</h3>
+                        <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                            <li><strong>Scan QR Checkpoint:</strong> Memastikan kehadiran petugas di lokasi.</li>
+                            <li><strong>Real-Time Tracking:</strong> Pantau posisi secara langsung.</li>
+                            <li><strong>Anti-Fake GPS:</strong> Mencegah pemalsuan koordinat lokasi.</li>
+                            <li><strong>Laporan Insiden & Watermark:</strong> Kirim foto ber-timestamp otomatis.</li>
+                            <li><strong>Panic Button SOS:</strong> Panggilan darurat instan ke command center.</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 space-y-3">
+                        <div class="w-10 h-10 bg-emerald-600/20 text-emerald-400 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <h3 class="font-bold text-sm text-slate-100">Rekomendasi Aplikasi</h3>
+                        <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                            <li><strong>Turjawali:</strong> Populer di Indonesia, integrasi HRIS & Anti-Fake GPS.</li>
+                            <li><strong>QBSC:</strong> Fokus monitoring real-time & transparansi pos jaga.</li>
+                            <li><strong>QR-Patrol:</strong> Cloud global dengan integrasi NFC/BLE.</li>
+                            <li><strong>K3Guard / Smart Guard:</strong> Penjadwalan & export laporan instan.</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 space-y-3">
+                        <div class="w-10 h-10 bg-amber-600/20 text-amber-400 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-lightbulb"></i>
+                        </div>
+                        <h3 class="font-bold text-sm text-slate-100">Keuntungan Digital</h3>
+                        <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                            <li><strong>Transparansi & Akuntabilitas:</strong> Tanpa manipulasi data laporan.</li>
+                            <li><strong>Efisiensi Biaya:</strong> Menggantikan stick patrol fisik yang mahal.</li>
+                            <li><strong>Paperless:</strong> Semua data tersimpan aman di cloud.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-3 pointer-events-none"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
